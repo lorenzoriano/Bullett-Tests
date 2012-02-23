@@ -13,14 +13,10 @@ subject to the following restrictions:
 3. This notice may not be removed or altered from any source distribution.
 */
 
-#include "CcdPhysicsDemo.h"
+#include <CcdPhysicsDemo.h>
 #include "GlutStuff.h"
 #include "GLDebugDrawer.h"
 #include "btBulletDynamicsCommon.h"
-#ifdef __DEBUG_FPU_ISSUES
-#define _GNU_SOURCE
-#include <fenv.h>
-#endif
 
 GLDebugDrawer	gDebugDrawer;
 
@@ -29,19 +25,11 @@ int main(int argc,char** argv)
 
 	CcdPhysicsDemo* ccdDemo = new CcdPhysicsDemo();
 
-#ifdef __DEBUG_FPU_ISSUES
-//	feenableexcept (FE_DIVBYZERO);
-//	feenableexcept (FE_INEXACT);
-//	feenableexcept (FE_INVALID);
-//	feenableexcept (FE_OVERFLOW|FE_DIVBYZERO|FE_UNDERFLOW);
-//	feenableexcept (FE_UNDERFLOW);
-#endif
-
 	ccdDemo->initPhysics();
 	ccdDemo->getDynamicsWorld()->setDebugDrawer(&gDebugDrawer);
 
 
-	glutmain(argc, argv,640,480,"Bullet Physics Demo. http://bulletphysics.com",ccdDemo);
+	glutmain(argc, argv,640,480,"Bullet Physics Demo",ccdDemo);
 
 	delete ccdDemo;
 	return 0;
