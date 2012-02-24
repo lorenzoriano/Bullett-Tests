@@ -2,11 +2,9 @@
 BuildItems=@Variant(\x00\x00\x00\t\x00\x00\x00\x00\x01\x00\x00\x00\x0b\x00\x00\x00\x00\x01\x00\x00\x00\x12\x00t\x00u\x00t\x00o\x00r\x00i\x00a\x00l\x00s)
 
 [CMake]
-BuildDirs=/home/pezzotto/tmp/bullet/tutorials/build
+BuildDirs[$e]=$HOME/Projects/Bullett-Tests/gripper/build
 CMakeDir=/usr/share/cmake-2.8/Modules
-Current CMake Binary=file:///usr/bin/cmake
-CurrentBuildDir=file:///home/pezzotto/tmp/bullet/tutorials/build
-CurrentBuildType=Debug
+CurrentBuildDir=file:///home/pezzotto/Projects/Bullett-Tests/gripper/build
 CurrentInstallDir=
 Extra Arguments=
 ProjectRootRelative=./
@@ -49,3 +47,6 @@ Project Target=tutorials,demo
 Use External Terminal=false
 Working Directory=
 isExecutable=false
+
+[MakeBuilder]
+Number Of Jobs=1
