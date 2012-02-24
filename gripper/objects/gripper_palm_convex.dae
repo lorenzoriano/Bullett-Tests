@@ -1,0 +1,63 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<COLLADA xmlns="http://www.collada.org/2005/11/COLLADASchema" version="1.4.1">
+    <asset>
+        <contributor>
+            <author>VCGLab</author>
+            <authoring_tool>VCGLib | MeshLab</authoring_tool>
+        </contributor>
+        <up_axis>Y_UP</up_axis>
+        <created>Thu Feb 23 18:26:33 2012</created>
+        <modified>Thu Feb 23 18:26:33 2012</modified>
+    </asset>
+    <library_images/>
+    <library_materials/>
+    <library_effects/>
+    <library_geometries>
+        <geometry id="gripper_palm" name="gripper_palm">
+            <mesh>
+                <source id="gripper_palm-positions" name="position">
+                    <float_array id="gripper_palm-positions-array" count="36">0.029452 0.007911 0.020038 0.080191 -0.049565 0.019968 0.109127 0.033406 0.024259 0.118801 0.032647 -0.019732 0.122713 -0.024364 -0.019491 0.053229 -0.031485 -0.024235 0.068518 0.04814 -0.019446 0.122181 -0.025639 0.019726 0.029452 0.005632 -0.020721 0.067888 0.048122 0.019241 0.086561 -0.050013 -0.018738 0.02945 -0.020446 0.006566</float_array>
+                    <technique_common>
+                        <accessor count="12" source="#gripper_palm-positions-array" stride="3">
+                            <param name="X" type="float"/>
+                            <param name="Y" type="float"/>
+                            <param name="Z" type="float"/>
+                        </accessor>
+                    </technique_common>
+                </source>
+                <source id="gripper_palm-normals" name="normal">
+                    <float_array id="gripper_palm-normals-array" count="60">-0.0409419 -0.037359 0.998463 0.0680699 0.000453393 -0.99768 0.0121051 0.0577154 -0.99826 0.997526 0.0685152 0.0157595 0.958429 0.195973 0.207385 0.0438284 -0.0668365 0.996801 -0.735195 0.676799 -0.0378426 -0.0413399 0.0678919 -0.996836 0.329485 0.942487 0.0561954 0.294479 0.955644 0.00524009 -0.0847161 0.100625 0.991311 -0.722948 0.690808 -0.0114514 0.578278 -0.815626 -0.0186724 0.493406 -0.865003 0.0912138 -0.4761 -0.876742 -0.0682058 0.0821567 -0.144747 -0.986052 -1 7.24714e-05 -4.05217e-06 -0.776069 -0.455893 -0.435751 -0.484561 -0.872603 -0.061352 -0.436252 -0.386107 0.812776</float_array>
+                    <technique_common>
+                        <accessor count="20" source="#gripper_palm-normals-array" stride="3">
+                            <param name="X" type="float"/>
+                            <param name="Y" type="float"/>
+                            <param name="Z" type="float"/>
+                        </accessor>
+                    </technique_common>
+                </source>
+                <vertices id="gripper_palm-vertices">
+                    <input semantic="POSITION" source="#gripper_palm-positions"/>
+                </vertices>
+                <triangles count="20">
+                    <input offset="0" semantic="VERTEX" source="#gripper_palm-vertices"/>
+                    <input offset="1" semantic="NORMAL" source="#gripper_palm-normals"/>
+                    <p>0 0 1 0 2 0 3 1 4 1 5 1 3 2 5 2 6 2 7 3 4 3 3 3 7 4 3 4 2 4 7 5 2 5 1 5 8 6 0 6 6 6 8 7 6 7 5 7 9 8 2 8 3 8 9 9 3 9 6 9 9 10 0 10 2 10 9 11 6 11 0 11 10 12 4 12 7 12 10 13 7 13 1 13 10 14 1 14 5 14 10 15 5 15 4 15 11 16 0 16 8 16 11 17 8 17 5 17 11 18 5 18 1 18 11 19 1 19 0 19</p>
+                </triangles>
+            </mesh>
+        </geometry>
+    </library_geometries>
+    <library_visual_scenes>
+        <visual_scene id="VisualSceneNode" name="VisualScene">
+            <node id="node" name="node">
+                <instance_geometry url="#gripper_palm">
+                    <bind_material>
+                        <technique_common/>
+                    </bind_material>
+                </instance_geometry>
+            </node>
+        </visual_scene>
+    </library_visual_scenes>
+    <scene>
+        <instance_visual_scene url="#VisualSceneNode"/>
+    </scene>
+</COLLADA>
