@@ -15,15 +15,12 @@ subject to the following restrictions:
 #ifndef BT_CCD_PHYSICS_DEMO_H
 #define BT_CCD_PHYSICS_DEMO_H
 
-#ifdef _WINDOWS
-#include "Win32DemoApplication.h"
-#define PlatformDemoApplication Win32DemoApplication
-#else
 #include "GlutDemoApplication.h"
 #define PlatformDemoApplication GlutDemoApplication
-#endif
+#include <string>
 
 #include "LinearMath/btAlignedObjectArray.h"
+
 
 class btBroadphaseInterface;
 class btCollisionShape;
@@ -57,10 +54,11 @@ class CcdPhysicsDemo : public PlatformDemoApplication
 	int 	m_ccdMode;
 
 	btDefaultCollisionConfiguration* m_collisionConfiguration;
+    std::string m_gripper_filename;
 
 	public:
 
-	CcdPhysicsDemo();
+    CcdPhysicsDemo(std::string gripper_filename);
 
 	virtual ~CcdPhysicsDemo()
 	{
@@ -79,11 +77,13 @@ class CcdPhysicsDemo : public PlatformDemoApplication
 	virtual void displayCallback();
 	virtual void	shootBox(const btVector3& destination);
 	virtual void	clientResetScene();
+    
+    btCollisionShape* readGripper(void);
 
 	
-	static DemoApplication* Create()
+	static DemoApplication* Create(std::string filename)
 	{
-		CcdPhysicsDemo* demo = new CcdPhysicsDemo;
+		CcdPhysicsDemo* demo = new CcdPhysicsDemo(filename);
 		demo->myinit();
 		demo->initPhysics();
 		return demo;

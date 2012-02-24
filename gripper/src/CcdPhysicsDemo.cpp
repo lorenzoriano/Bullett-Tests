@@ -28,6 +28,7 @@ subject to the following restrictions:
 #include <stdio.h> //printf debugging
 #include <iostream>
 #include "GLDebugDrawer.h"
+#include "btBulletWorldImporter.h"
 
 #if 0
 extern btAlignedObjectArray<btVector3> debugContacts;
@@ -38,11 +39,12 @@ static GLDebugDrawer	sDebugDrawer;
 
 void callback(btDynamicsWorld *world, btScalar timeStep);
 
-CcdPhysicsDemo::CcdPhysicsDemo()
+CcdPhysicsDemo::CcdPhysicsDemo(std::string gripper_filename)
 :m_ccdMode(USE_CCD)
 {
     setDebugMode(btIDebugDraw::DBG_DrawText+btIDebugDraw::DBG_NoHelpText);
     setCameraDistance(btScalar(20.));
+    m_gripper_filename = gripper_filename;
 }
 
 
@@ -60,7 +62,8 @@ void CcdPhysicsDemo::clientMoveAndDisplay()
         // 	  m_dynamicsWorld->stepSimulation(1./60.);//ms / 1000000.f);
         btScalar delta_t = ms / 1000000.f;
         btScalar internalClock = 1/100.;
-        m_dynamicsWorld->stepSimulation(delta_t, 10, internalClock);
+//         m_dynamicsWorld->stepSimulation(delta_t, 10, internalClock);
+        m_dynamicsWorld->stepSimulation(delta_t);
         //optional but useful: debug drawing
         m_dynamicsWorld->debugDrawWorld();
     }
@@ -147,6 +150,23 @@ void CcdPhysicsDemo::displayCallback(void) {
     swapBuffers();
 }
 
+btCollisionShape* CcdPhysicsDemo::readGripper(void) {
+    
+    btBulletWorldImporter importer;
+    if (! importer.loadFile(m_gripper_filename.c_str())) {
+        std::cerr<<"Error loading "<<m_gripper_filename<<"\n";
+        return NULL;
+    }
+        
+    btCollisionShape* shape = importer.getCollisionShapeByName("gripper");
+    if (shape == NULL) {
+        std::cerr<<"No shape named gripper was found!\n";
+        return NULL;
+    }
+    return shape;
+        
+    
+}
 
 void	CcdPhysicsDemo::initPhysics()
 {
@@ -173,8 +193,7 @@ void	CcdPhysicsDemo::initPhysics()
     m_dynamicsWorld = new btDiscreteDynamicsWorld(m_dispatcher,m_broadphase,m_solver,m_collisionConfiguration);
     m_dynamicsWorld ->setDebugDrawer(&sDebugDrawer);
     m_dynamicsWorld->getSolverInfo().m_splitImpulse=true;
-    m_dynamicsWorld->getSolverInfo().m_numIterations = 20;
-    
+    m_dynamicsWorld->getSolverInfo().m_numIterations = 20;    
     
     if (m_ccdMode==USE_CCD)
     {
@@ -223,7 +242,7 @@ void	CcdPhysicsDemo::initPhysics()
     {
         btScalar mass(0.5);
         btVector3 localInertia(0,0,0);
-        btCollisionShape* boxshape = new btBoxShape(btVector3(btScalar(1), btScalar(1), btScalar(1)));
+        btCollisionShape* boxshape = new btBoxShape(btVector3(btScalar(0.2), btScalar(0.2), btScalar(0.2)));
         m_collisionShapes.push_back(boxshape);
         boxshape->calculateLocalInertia(mass, localInertia);
         
@@ -242,7 +261,8 @@ void	CcdPhysicsDemo::initPhysics()
     {
         btScalar mass(0.5);
         btVector3 localInertia(0,0,0);
-        btCollisionShape* boxshape = new btBoxShape(btVector3(btScalar(0.5), btScalar(0.5), btScalar(0.5)));
+//         btCollisionShape* boxshape = new btBoxShape(btVector3(btScalar(0.5), btScalar(0.5), btScalar(0.5)));
+        btCollisionShape* boxshape = readGripper();
         m_collisionShapes.push_back(boxshape);
         boxshape->calculateLocalInertia(mass, localInertia);
         
@@ -346,8 +366,8 @@ void CcdPhysicsDemo::mystep()
     m_collisionBody->getMotionState()->getWorldTransform(transform);
     
     btVector3 pos = transform.getOrigin();
-    transform.setOrigin(btVector3(pos.getX()+0.01, 2, pos.getZ()));
-    m_collisionBody->setWorldTransform(transform);
+    transform.setOrigin(btVector3(pos.getX()+0.001, 2, pos.getZ()));
+//     m_collisionBody->setWorldTransform(transform);
     //   m_collisionBody->applyCentralImpulse(btVector3(0.1,0,0));
 }
 
