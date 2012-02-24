@@ -34,6 +34,12 @@ float deltaTime = 1.f/60.f;
 #include "GL_ShapeDrawer.h"
 #include "GlutStuff.h"
 
+#include "dae.h"
+#include "dom/domCOLLADA.h"
+#include "dae/domAny.h"
+#include "dom/domConstants.h"
+
+#include <iostream>
 
 
 ///custom version of the converter, that creates physics objects/constraints
@@ -49,11 +55,28 @@ class MyColladaConverter : public ColladaConverter
 		}
 		
 	
-	virtual void	setCameraInfo(const btVector3& camUp,int forwardAxis) 
-	{
-		m_demoApp->setCameraUp(camUp);
-		m_demoApp->setCameraForwardAxis(forwardAxis);
-	}
+        virtual void	setCameraInfo(const btVector3& camUp,int forwardAxis) 
+        {
+            m_demoApp->setCameraUp(camUp);
+            m_demoApp->setCameraForwardAxis(forwardAxis);
+        }
+        
+        class domGeometry* findGeometry (const char* shapeName) {
+            
+        }
+        
+        void mytest() {
+            domLibrary_geometries* geomLib = getDefaultGeomLib ();
+            domGeometry_Array& geometryArray = geomLib->getGeometry_array ();
+            std::cout<<"Number of elements: "<<geometryArray.getCount()<<"\n";
+            for (int i = 0; i < geometryArray.getCount (); i++)
+            {
+                domGeometry* geom = geometryArray[i];
+                std::cout<<"name: "<<geom->getId()<<"\n";             
+                
+            }
+                       
+        }	
 
 };
 
@@ -130,18 +153,19 @@ void	ColladaDemo::initPhysics(const char* filename)
 	
 
 	MyColladaConverter* converter = new MyColladaConverter(this);
+    converter->setVerbosity(ColladaConverter::LOUD);
 
 	bool result = converter->load(filename);
 	if (result)
 	{
 		gColladaConverter = converter;
+        converter->mytest();
 	} else
 	{
 		gColladaConverter = 0;
 		printf("gColladaConverter = 0\n");
 	}
 }
-
 
 void ColladaDemo::clientMoveAndDisplay()
 {

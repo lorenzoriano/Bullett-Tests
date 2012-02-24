@@ -17,13 +17,18 @@ subject to the following restrictions:
 #include "GlutStuff.h"
 #include "GLDebugDrawer.h"
 #include "btBulletDynamicsCommon.h"
+#include <iostream>
 
 GLDebugDrawer	gDebugDrawer;
 
 int main(int argc,char** argv)
 {
+    if (argc != 2) {
+        std::cerr<<"Give me the gripper .bullet filename!\n";
+        return 1;
+    }
 
-	CcdPhysicsDemo* ccdDemo = new CcdPhysicsDemo();
+	CcdPhysicsDemo* ccdDemo = new CcdPhysicsDemo(argv[1]);
 
 	ccdDemo->initPhysics();
 	ccdDemo->getDynamicsWorld()->setDebugDrawer(&gDebugDrawer);

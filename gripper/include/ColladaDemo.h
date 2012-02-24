@@ -19,6 +19,9 @@ subject to the following restrictions:
 
 ///ColladaDemo shows the loading and exporting of COLLADA physics xml files.
 ///It uses COLLADA DOM
+
+class MyColladaConverter;
+
 class ColladaDemo : public GlutDemoApplication
 {
 	public:
@@ -26,6 +29,8 @@ class ColladaDemo : public GlutDemoApplication
 	virtual	void initPhysics();
 
 	void	initPhysics(const char* filename);
+    
+    void mytest(MyColladaConverter* converter);
 
 	virtual void clientMoveAndDisplay();
 
