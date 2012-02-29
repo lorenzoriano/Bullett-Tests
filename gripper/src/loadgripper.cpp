@@ -88,14 +88,13 @@ public:
         
         btTransform T1, T2;
         btTransform T_proximal, T_distal;
-        float angle = 0.541; //closed gripper
-//         float angle = 0.021; //open gripper ??
+        float angle = 0.0; //closed gripper
         
-        std::cout<<"WARNING: Enlarging the shape!\n";
-        float factor = 10.;
-        btVector3 scale(factor,factor,factor);
+//         std::cout<<"WARNING: Enlarging the shape!\n";
+//         float factor = 10.;
+//         btVector3 scale(factor,factor,factor);
         
-//         btVector3 scale(1,1,1);
+        btVector3 scale(1,1,1);
         
         btCompoundShape* shape = createCompoundShape();
         
@@ -131,7 +130,7 @@ public:
             first_finger_tip->addPoint(point);            
         }
         first_finger_tip->setLocalScaling(scale);
-//         shape->addChildShape(T_distal, first_finger_tip);
+        shape->addChildShape(T_distal, first_finger_tip);
         
         
         //second finger        
@@ -148,7 +147,7 @@ public:
             second_finger->addPoint(point);            
         }
         second_finger->setLocalScaling(scale);
-//         shape->addChildShape(T_proximal, second_finger);
+        shape->addChildShape(T_proximal, second_finger);
         
         btConvexHullShape* second_finger_tip = createConvexHullShape();
         for (unsigned int i=0; i<finger_tip.size(); i++) {
@@ -156,7 +155,7 @@ public:
             second_finger_tip->addPoint(point);            
         }
         second_finger_tip->setLocalScaling(scale);
-//         shape->addChildShape(T_distal, second_finger_tip);
+        shape->addChildShape(T_distal, second_finger_tip);
      
         return shape;
     }
@@ -175,6 +174,16 @@ public:
         
     }
     
+    btConvexHullShape* create_gripper_single_shape(std::vector<btVector3> vertices) {
+        
+        btConvexHullShape* shape = createConvexHullShape();
+        for (unsigned int i=0; i<vertices.size(); i++) {
+            btVector3 point = vertices[i];
+            shape->addPoint(point);            
+        }
+        return shape;
+    }
+    
 private:
     btDefaultCollisionConfiguration* m_collisionConfiguration;
     btCollisionDispatcher* m_dispatcher;
@@ -184,7 +193,7 @@ private:
 
 };
 
-int main(int argc, char** argv) {
+int main1(int argc, char** argv) {
     
     if (argc != 4) {
         std::cerr<<"Give me the filenames!!!\n";
@@ -241,4 +250,42 @@ int main(int argc, char** argv) {
     
     delete serializer;
     
+}
+
+int main2(int argc, char** argv) {
+    if (argc != 2) {
+        std::cerr<<"Give me the filename!!!\n";
+        return 1;
+    }
+    char* gripper_filename = argv[1];
+    
+    std::vector< btVector3 > gripper;      
+    {
+        GripperLoader loader_gripper;
+        std::cout<<"Loading: "<<gripper_filename<<"\n";
+        if (!loader_gripper.load(gripper_filename))
+            return 1;
+        gripper = loader_gripper.shape_from_geometry("gripper-mesh");
+    }
+    
+    GripperLoader loader;
+    btConvexHullShape* shape = loader.create_gripper_single_shape(gripper);
+    
+    std::cout<<"serializing to gripper.bullet\n";
+    btDefaultSerializer* serializer = new btDefaultSerializer();
+    serializer->startSerialization();
+    serializer->registerNameForPointer(shape, "gripper");
+    shape->serializeSingleShape(serializer);
+    serializer->finishSerialization();
+    
+    FILE* file = fopen("objects/gripper.bullet", "wb");
+    fwrite(serializer->getBufferPointer(), serializer->getCurrentBufferSize(), 1, file);
+    fclose(file);
+    
+    delete serializer;
+    
+}
+
+int main(int argc, char** argv) {
+    return main2(argc, argv);  
 }
