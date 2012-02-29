@@ -4,6 +4,9 @@
 #include <vector>
 #include "simulation.h"
 
+#include "simulation.h"
+#include <btBulletDynamicsCommon.h>
+
 int main(int argc, char** argv) {
     
     if (argc != 2) {
@@ -18,7 +21,7 @@ int main(int argc, char** argv) {
     parser.GetNextDocument(doc);
     
     const YAML::Node& node = doc[0];
-    Simuation sim;
+    Simulation sim;
     node >> sim;
     
     std::cout<<"Simulation with "<<sim.trajectory.size()<<" elements\n";
@@ -29,6 +32,29 @@ int main(int argc, char** argv) {
                                <<sim.post_box_dims.getY()<<", "
                                <<sim.post_box_dims.getZ()<<"\n";
     
+    sim.setup_times();
+    std::cout<<"Simulation ends at: "<< sim.trajectory[sim.trajectory.size()-1].time<<"\n";
+    std::cout<<"Testing the timing\n";
     
+    btClock clock;
+    int step = 0;
+    double first_tick;
+    first_tick = 0;
+    while (step < sim.trajectory.size()) {
+        double next_tick = sim[step].time;        
+        double delta_tick = next_tick - first_tick;
+        double elapsed = clock.getTimeMicroseconds() * 1.e-6;
+        
+        if (elapsed < delta_tick) {
+            usleep(5);
+            continue;
+        }
+        std::cerr<<"Step: "<<step<<", Elapsed: "<<elapsed<<", delta_tick: "<<delta_tick<<"\n";
+        
+        clock.reset();
+        step++;    
+        first_tick = next_tick;
+        
+    }
     return 0;
 }

@@ -2,21 +2,31 @@
 #define __SIMULATION_H__
 
 #include <vector>
+#include <iostream>
+#include <fstream>
 #include "btBulletDynamicsCommon.h"
 #include <yaml-cpp/yaml.h>
 
 struct Pose {
     btVector3 position;
     btQuaternion orientation;
+    
+    btTransform getTransform() const {
+        return btTransform(orientation, position);
+    }
 };
 
 struct PoseStamped {
-    float time;
+    double time;
     Pose pose;
 };
 
-struct Simuation {
-  
+struct Simulation {
+    
+    Simulation() {
+        m_already_setup = false;
+    }
+    
     btVector3 pre_box_dims;
     btVector3 post_box_dims;
     
@@ -24,10 +34,36 @@ struct Simuation {
     Pose post_box_pose;
     
     std::vector<PoseStamped> trajectory;
+    bool m_already_setup;
+    
+    void setup_times() {
+        if (m_already_setup) {
+            std::cerr<<"Already setup!!\n";
+            return;
+        }
+        std::cout<<"Adjusting the times\n";
+        m_already_setup = true;
+        
+        if (trajectory.size() == 0)
+            return;
+        double init_time = trajectory[0].time;
+        for (int i=0; i<trajectory.size(); i++) {
+            trajectory[i].time = (trajectory[i].time - init_time) * 1e-9;
+        }
+    }
+    
+    PoseStamped& operator[](int i) {
+        return trajectory[i];
+    }
+    const PoseStamped& operator[](int i) const {
+        return trajectory[i];
+    }
+    
+    static Simulation createFromYaml(const char* filename);
 };
 
 
-void operator>>(const YAML::Node& node, Pose& pose) {
+inline void operator>>(const YAML::Node& node, Pose& pose) {
     const YAML::Node& position_node = node["position"];
     
     float x, y, z, w;
@@ -50,12 +86,12 @@ void operator>>(const YAML::Node& node, Pose& pose) {
     pose.orientation.setW(w);    
 }
 
-void operator>>(const YAML::Node& node, PoseStamped& pose) {
+inline void operator>>(const YAML::Node& node, PoseStamped& pose) {
     node["time"] >> pose.time;
     node["pose"] >> pose.pose;
 }
 
-void operator>>(const YAML::Node& node, Simuation& sim) {
+inline void operator>>(const YAML::Node& node, Simulation& sim) {
     {
         const YAML::Node& vec = node["pre_box_dims"];
         float x, y, z;
@@ -86,5 +122,17 @@ void operator>>(const YAML::Node& node, Simuation& sim) {
       
 }
 
+inline Simulation Simulation::createFromYaml(const char* filename) {
+    std::ifstream fin(filename);
+    YAML::Parser parser(fin);
+    
+    YAML::Node doc;
+    parser.GetNextDocument(doc);
+    
+    const YAML::Node& node = doc[0];
+    Simulation sim;
+    node >> sim;
+    return sim;
+}
 
 #endif

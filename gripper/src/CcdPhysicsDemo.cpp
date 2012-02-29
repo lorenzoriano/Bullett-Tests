@@ -30,39 +30,67 @@ subject to the following restrictions:
 #include "GLDebugDrawer.h"
 #include "btBulletWorldImporter.h"
 
-#if 0
-extern btAlignedObjectArray<btVector3> debugContacts;
-extern btAlignedObjectArray<btVector3> debugNormals;
-#endif 
+#include <simulation.h>
 
 static GLDebugDrawer	sDebugDrawer;
 
 void callback(btDynamicsWorld *world, btScalar timeStep);
 
-CcdPhysicsDemo::CcdPhysicsDemo(std::string gripper_filename)
+CcdPhysicsDemo::CcdPhysicsDemo(std::string gripper_filename, Simulation* sim)
 :m_ccdMode(USE_CCD)
 {
     setDebugMode(btIDebugDraw::DBG_DrawText+btIDebugDraw::DBG_NoHelpText);
     setCameraDistance(btScalar(20.));
     m_gripper_filename = gripper_filename;
+    m_simulation = sim;
+    m_simulation_clock.reset();
+    m_simulation_step = 0;
 }
 
 
 void CcdPhysicsDemo::clientMoveAndDisplay()
-{
-    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT); 
+{    
+    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
     
-    //simple dynamics world doesn't handle fixed-time-stepping
-    float ms = getDeltaTimeMicroseconds();
-    // 	std::cout<<"MS: "<<ms<<"\n";
+    if (m_simulation_step >= m_simulation->trajectory.size()) {
+        std::cerr<<"Simulation is over\n";
+        renderme();
+        displayText();
+        glFlush();
+        swapBuffers();
+        m_dynamicsWorld->debugDrawWorld();
+        return;
+    }
+        
+    
+    double first_tick;
+    if (m_simulation_step == 0) {
+        //beginning of the simulation
+        first_tick = 0;
+    }
+    else {
+        first_tick =  m_simulation->trajectory[m_simulation_step-1].time;    
+    }
+    double next_tick = m_simulation->trajectory[m_simulation_step].time; 
+    double delta_tick = next_tick - first_tick;
+    
+    double elapsed = m_simulation_clock.getTimeMicroseconds() * 1.e-6;
+//     std::cout<<"Elapsed time: "<<elapsed<<"\n";
+    
+    if (elapsed < delta_tick) {
+        usleep(5);
+        return;
+    }
+    
+    std::cerr<<"Step: "<<m_simulation_step<<", Elapsed: "<<elapsed<<", delta_tick: "<<delta_tick<<"\n";
+    
+    m_simulation_clock.reset();
+    step_simulation();    
     
     ///step the simulation
     if (m_dynamicsWorld)
     {	  
-        // 	  m_dynamicsWorld->stepSimulation(1./60.);//ms / 1000000.f);
-        btScalar delta_t = ms / 1000000.f;
-        btScalar internalClock = 1/100.;
-//         m_dynamicsWorld->stepSimulation(delta_t, 10, internalClock);
+        btScalar delta_t = delta_tick; //#TODO THIS IS NOT CORRECT, USE THE DIFFERENCE IN THE SIMULATION
         m_dynamicsWorld->stepSimulation(delta_t);
         //optional but useful: debug drawing
         m_dynamicsWorld->debugDrawWorld();
@@ -76,7 +104,6 @@ void CcdPhysicsDemo::clientMoveAndDisplay()
     swapBuffers();
     
 }
-
 
 void CcdPhysicsDemo::displayText()
 {
@@ -174,7 +201,8 @@ void	CcdPhysicsDemo::initPhysics()
     setShadows(true);
     
     m_ShootBoxInitialSpeed = 200.f;
-    
+    m_simulation_clock.reset();
+    m_simulation_step = 0;
     
     ///collision configuration contains default setup for memory, collision setup
     m_collisionConfiguration = new btDefaultCollisionConfiguration();
@@ -253,7 +281,7 @@ void	CcdPhysicsDemo::initPhysics()
         btRigidBody* body = new btRigidBody(rbInfo);
         body->setFriction(1.0);
         m_dynamicsWorld->addRigidBody(body);
-        m_mainBody = body;
+        m_collision_body = body;
         
     }
     
@@ -269,18 +297,20 @@ void	CcdPhysicsDemo::initPhysics()
         // 	  btTransform groundTransform;
         // 	  groundTransform.setIdentity();
 //         btDefaultMotionState* myMotionState = new btDefaultMotionState(btTransform(btQuaternion(0.518664,-0.481273,-0.507119,-0.492131),btVector3(0,2.1,0)));
-        btDefaultMotionState* myMotionState = new btDefaultMotionState(btTransform(btQuaternion(0.0,0,0,1),btVector3(0, 0.3, 0)));
+        btQuaternion init_rotation = m_simulation->trajectory[0].pose.orientation;
+        btVector3  init_position = m_simulation->trajectory[0].pose.position;
+        btDefaultMotionState* myMotionState = new btDefaultMotionState(btTransform(init_rotation,init_position));
         btRigidBody::btRigidBodyConstructionInfo rbInfo(mass,myMotionState,boxshape,localInertia);
         btRigidBody* body = new btRigidBody(rbInfo);
         body->setGravity(btVector3(0,0,0));
         // 	  body->setFriction(1.0);
         m_dynamicsWorld->addRigidBody(body);
         
-        m_collisionBody = body;
-        m_collisionBody->setGravity(btVector3(0,0,0));
+        m_gripper = body;
+        m_gripper->setGravity(btVector3(0,0,0));
         
     }
-    m_dynamicsWorld->setInternalTickCallback(callback, this, true);
+//     m_dynamicsWorld->setInternalTickCallback(callback, this, true);
     
 }
 
@@ -359,16 +389,14 @@ void	CcdPhysicsDemo::shootBox(const btVector3& destination)
 
 void CcdPhysicsDemo::mystep(btScalar step)
 {
-    btVector3 v = m_collisionBody->getLinearVelocity();
+    btVector3 v = m_gripper->getLinearVelocity();
     std::cout<<"Velocity: "<<v.x()<<", "<<v.y()<<", "<<v.z()<<"\n";
-    m_collisionBody->activate(true);
-    btScalar gravity = m_collisionBody->getGravity().getY();
-    btScalar mass = 1.0 / m_collisionBody->getInvMass();
-    btScalar force = -gravity*mass;
+    m_gripper->activate(true);
+    
 //     m_collisionBody->applyCentralForce(btVector3(0.,force, 0.));
     
     btTransform transform;
-    m_collisionBody->getMotionState()->getWorldTransform(transform);
+    m_gripper->getMotionState()->getWorldTransform(transform);
     
     btVector3 pos = transform.getOrigin();
     
@@ -380,10 +408,18 @@ void CcdPhysicsDemo::mystep(btScalar step)
     
 //     m_collisionBody->setWorldTransform(transform);
 //     m_collisionBody->setLinearVelocity(speed);
-    m_collisionBody->translate(speed);
-    m_collisionBody->applyCentralImpulse(mass * speed);
+//     m_collisionBody->translate(speed);
+//     m_collisionBody->applyCentralImpulse(mass * speed);
 }
 
+
+void CcdPhysicsDemo::step_simulation() {
+    m_gripper->activate(true);
+    btTransform newpos = m_simulation->trajectory[m_simulation_step].pose.getTransform();
+    m_gripper->setWorldTransform(newpos);
+    
+    m_simulation_step++;
+}
 
 
 void CcdPhysicsDemo::exitPhysics()

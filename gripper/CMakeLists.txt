@@ -19,6 +19,6 @@ add_executable(demo src/ccd_demo.cpp src/CcdPhysicsDemo.cpp)
 add_executable(load_gripper src/loadgripper.cpp src/ColladaConverter.cpp)
 
 target_link_libraries(tutorials ${libbullet})
-target_link_libraries(demo ${libopengl} ${libbullet})
+target_link_libraries(demo ${libopengl} ${libbullet} yaml-cpp)
 target_link_libraries(load_gripper ${libcollada} ${libopengl} ${libbullet})
 target_link_libraries(test_yaml yaml-cpp ${libbullet}) 

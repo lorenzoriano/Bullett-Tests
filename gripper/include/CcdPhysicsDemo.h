@@ -29,6 +29,7 @@ class btCollisionDispatcher;
 class btConstraintSolver;
 struct btCollisionAlgorithmCreateFunc;
 class btDefaultCollisionConfiguration;
+class Simulation;
 
 ///CcdPhysicsDemo is good starting point for learning the code base and porting.
 
@@ -41,10 +42,13 @@ class CcdPhysicsDemo : public PlatformDemoApplication
 	btBroadphaseInterface*	m_broadphase;
 
 	btCollisionDispatcher*	m_dispatcher;
-
-	btConstraintSolver*	m_solver;
-	btRigidBody*	m_mainBody;
-	btRigidBody*	m_collisionBody;
+    btConstraintSolver*	m_solver;
+	btRigidBody*	m_collision_body;
+	btRigidBody*	m_gripper;
+    Simulation* m_simulation;
+    btClock m_simulation_clock;
+    int m_simulation_step;
+    
 
 	enum
 	{
@@ -55,10 +59,12 @@ class CcdPhysicsDemo : public PlatformDemoApplication
 
 	btDefaultCollisionConfiguration* m_collisionConfiguration;
     std::string m_gripper_filename;
+    void step_simulation();
+    
 
 	public:
 
-    CcdPhysicsDemo(std::string gripper_filename);
+    CcdPhysicsDemo(std::string gripper_filename, Simulation* sim);
 
 	virtual ~CcdPhysicsDemo()
 	{
@@ -79,11 +85,10 @@ class CcdPhysicsDemo : public PlatformDemoApplication
 	virtual void	clientResetScene();
     
     btCollisionShape* readGripper(void);
-
 	
-	static DemoApplication* Create(std::string filename)
+	static DemoApplication* Create(std::string filename, Simulation* sim)
 	{
-		CcdPhysicsDemo* demo = new CcdPhysicsDemo(filename);
+		CcdPhysicsDemo* demo = new CcdPhysicsDemo(filename, sim);
 		demo->myinit();
 		demo->initPhysics();
 		return demo;

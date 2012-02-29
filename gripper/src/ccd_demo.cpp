@@ -18,17 +18,23 @@ subject to the following restrictions:
 #include "GLDebugDrawer.h"
 #include "btBulletDynamicsCommon.h"
 #include <iostream>
+#include "simulation.h"
 
 GLDebugDrawer	gDebugDrawer;
 
 int main(int argc,char** argv)
 {
-    if (argc != 2) {
-        std::cerr<<"Give me the gripper .bullet filename!\n";
+    if (argc != 3) {
+        std::cerr<<"Give me the gripper .bullet and the simulation .yaml filenames!\n";
         return 1;
     }
-
-	CcdPhysicsDemo* ccdDemo = new CcdPhysicsDemo(argv[1]);
+    
+    Simulation sim =  Simulation::createFromYaml(argv[2]);
+    assert(! sim.trajectory.empty());
+    sim.setup_times();
+    assert(sim.trajectory[0].time == 0);
+    
+	CcdPhysicsDemo* ccdDemo = new CcdPhysicsDemo(argv[1], &sim);
 
 	ccdDemo->initPhysics();
 	ccdDemo->getDynamicsWorld()->setDebugDrawer(&gDebugDrawer);
