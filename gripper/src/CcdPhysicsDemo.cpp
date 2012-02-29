@@ -206,7 +206,7 @@ void	CcdPhysicsDemo::initPhysics()
     m_dynamicsWorld->setGravity(btVector3(0,btScalar(-10),0));
     
     ///create a few basic rigid bodies
-    btBoxShape* box = new btBoxShape(btVector3(btScalar(110.),btScalar(1.),btScalar(110.)));
+    btBoxShape* box = new btBoxShape(btVector3(btScalar(110.),btScalar(0),btScalar(110.)));
     //	box->initializePolyhedralFeatures();
     btCollisionShape* groundShape = box;
     
@@ -214,9 +214,9 @@ void	CcdPhysicsDemo::initPhysics()
     
     m_collisionShapes.push_back(groundShape);
     
-    btTransform groundTransform;
+    btTransform groundTransform = btTransform::getIdentity();
     groundTransform.setIdentity();
-    //groundTransform.setOrigin(btVector3(5,5,5));
+    groundTransform.setOrigin(btVector3(0,0,0));
     
     //We can also use DemoApplication::localCreateRigidBody, but for clarity it is provided here:
     {
@@ -248,10 +248,10 @@ void	CcdPhysicsDemo::initPhysics()
         
         // 	  btTransform groundTransform;
         // 	  groundTransform.setIdentity();
-        btDefaultMotionState* myMotionState = new btDefaultMotionState(btTransform(btQuaternion(0,0,0,1),btVector3(0,2,0)));
+        btDefaultMotionState* myMotionState = new btDefaultMotionState(btTransform(btQuaternion(0,0,0,1),btVector3(1, 0.2, 0.0)));
         btRigidBody::btRigidBodyConstructionInfo rbInfo(mass,myMotionState,boxshape,localInertia);
         btRigidBody* body = new btRigidBody(rbInfo);
-        body->setFriction(10.0);
+        body->setFriction(1.0);
         m_dynamicsWorld->addRigidBody(body);
         m_mainBody = body;
         
@@ -259,7 +259,7 @@ void	CcdPhysicsDemo::initPhysics()
     
     //Collision Box
     {
-        btScalar mass(0.5);
+        btScalar mass(2.0);
         btVector3 localInertia(0,0,0);
 //         btCollisionShape* boxshape = new btBoxShape(btVector3(btScalar(0.5), btScalar(0.5), btScalar(0.5)));
         btCollisionShape* boxshape = readGripper();
@@ -268,13 +268,16 @@ void	CcdPhysicsDemo::initPhysics()
         
         // 	  btTransform groundTransform;
         // 	  groundTransform.setIdentity();
-        btDefaultMotionState* myMotionState = new btDefaultMotionState(btTransform(btQuaternion(0,0,0,1),btVector3(-3,2,0)));
+//         btDefaultMotionState* myMotionState = new btDefaultMotionState(btTransform(btQuaternion(0.518664,-0.481273,-0.507119,-0.492131),btVector3(0,2.1,0)));
+        btDefaultMotionState* myMotionState = new btDefaultMotionState(btTransform(btQuaternion(0.0,0,0,1),btVector3(0, 0.3, 0)));
         btRigidBody::btRigidBodyConstructionInfo rbInfo(mass,myMotionState,boxshape,localInertia);
         btRigidBody* body = new btRigidBody(rbInfo);
         body->setGravity(btVector3(0,0,0));
         // 	  body->setFriction(1.0);
         m_dynamicsWorld->addRigidBody(body);
+        
         m_collisionBody = body;
+        m_collisionBody->setGravity(btVector3(0,0,0));
         
     }
     m_dynamicsWorld->setInternalTickCallback(callback, this, true);
@@ -354,21 +357,31 @@ void	CcdPhysicsDemo::shootBox(const btVector3& destination)
     }
 }
 
-void CcdPhysicsDemo::mystep()
+void CcdPhysicsDemo::mystep(btScalar step)
 {
+    btVector3 v = m_collisionBody->getLinearVelocity();
+    std::cout<<"Velocity: "<<v.x()<<", "<<v.y()<<", "<<v.z()<<"\n";
     m_collisionBody->activate(true);
     btScalar gravity = m_collisionBody->getGravity().getY();
     btScalar mass = 1.0 / m_collisionBody->getInvMass();
     btScalar force = -gravity*mass;
-    m_collisionBody->applyCentralForce(btVector3(0.,force, 0.));
+//     m_collisionBody->applyCentralForce(btVector3(0.,force, 0.));
     
     btTransform transform;
     m_collisionBody->getMotionState()->getWorldTransform(transform);
     
     btVector3 pos = transform.getOrigin();
-    transform.setOrigin(btVector3(pos.getX()+0.001, 2, pos.getZ()));
+    
+    btVector3 speed = btVector3(0.1, 0, 0);
+    speed *= step;
+    
+    transform.setOrigin(pos + speed);
+//     m_collisionBody->getMotionState()->setWorldTransform(transform);
+    
 //     m_collisionBody->setWorldTransform(transform);
-    //   m_collisionBody->applyCentralImpulse(btVector3(0.1,0,0));
+//     m_collisionBody->setLinearVelocity(speed);
+    m_collisionBody->translate(speed);
+    m_collisionBody->applyCentralImpulse(mass * speed);
 }
 
 
@@ -416,7 +429,7 @@ void callback(btDynamicsWorld *world, btScalar timeStep) {
     
     CcdPhysicsDemo* demo = (CcdPhysicsDemo*)world->getWorldUserInfo();
     
-    demo->mystep();
+    demo->mystep(timeStep);
 }
 
 

@@ -88,7 +88,7 @@ class CcdPhysicsDemo : public PlatformDemoApplication
 		demo->initPhysics();
 		return demo;
 	}
-	void mystep();
+	void mystep(btScalar);
 
 	
 };
