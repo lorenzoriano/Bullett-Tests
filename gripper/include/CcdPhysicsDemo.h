@@ -48,6 +48,10 @@ class CcdPhysicsDemo : public PlatformDemoApplication
     Simulation* m_simulation;
     btClock m_simulation_clock;
     int m_simulation_step;
+    bool m_is_paused;
+    btTransform m_ROSTransform;
+    btVector3 m_prevLinearVelocity;
+    btVector3 m_prevAngularVelocity;
     
 
 	enum
@@ -60,6 +64,7 @@ class CcdPhysicsDemo : public PlatformDemoApplication
 	btDefaultCollisionConfiguration* m_collisionConfiguration;
     std::string m_gripper_filename;
     void step_simulation();
+    void createROSTransformation();
     
 
 	public:

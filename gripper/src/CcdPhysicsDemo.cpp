@@ -29,12 +29,18 @@ subject to the following restrictions:
 #include <iostream>
 #include "GLDebugDrawer.h"
 #include "btBulletWorldImporter.h"
+#include <sstream>
 
 #include <simulation.h>
 
 static GLDebugDrawer	sDebugDrawer;
 
 void callback(btDynamicsWorld *world, btScalar timeStep);
+
+std::ostream& operator<< (std::ostream& os, btVector3 v) {
+    os<<v.getX()<<", "<<v.getY()<<", "<<v.getZ();
+    return os;
+}
 
 CcdPhysicsDemo::CcdPhysicsDemo(std::string gripper_filename, Simulation* sim)
 :m_ccdMode(USE_CCD)
@@ -44,24 +50,24 @@ CcdPhysicsDemo::CcdPhysicsDemo(std::string gripper_filename, Simulation* sim)
     m_gripper_filename = gripper_filename;
     m_simulation = sim;
     m_simulation_clock.reset();
-    m_simulation_step = 0;
+    m_simulation_step = 1;
+    m_is_paused = true;
+    createROSTransformation();
 }
 
+void CcdPhysicsDemo::createROSTransformation() {
+    btMatrix3x3 rot(0, 0, 1,
+                    1, 0, 0,
+                    0, 1, 0);
+    m_ROSTransform.setIdentity();
+    m_ROSTransform.setBasis(rot);
+    m_ROSTransform = m_ROSTransform.inverse();
+    
+}
 
 void CcdPhysicsDemo::clientMoveAndDisplay()
 {    
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-    
-    if (m_simulation_step >= m_simulation->trajectory.size()) {
-        std::cerr<<"Simulation is over\n";
-        renderme();
-        displayText();
-        glFlush();
-        swapBuffers();
-        m_dynamicsWorld->debugDrawWorld();
-        return;
-    }
-        
     
     double first_tick;
     if (m_simulation_step == 0) {
@@ -78,19 +84,22 @@ void CcdPhysicsDemo::clientMoveAndDisplay()
 //     std::cout<<"Elapsed time: "<<elapsed<<"\n";
     
     if (elapsed < delta_tick) {
-        usleep(5);
+        usleep(1);
         return;
     }
     
-    std::cerr<<"Step: "<<m_simulation_step<<", Elapsed: "<<elapsed<<", delta_tick: "<<delta_tick<<"\n";
+//     std::cerr<<"Step: "<<m_simulation_step<<", Elapsed: "<<elapsed<<", delta_tick: "<<delta_tick<<"\n";
     
     m_simulation_clock.reset();
-    step_simulation();    
+    if ((! m_is_paused) && (m_simulation_step < m_simulation->trajectory.size()))
+        step_simulation();
+    else
+        delta_tick = 0;
     
     ///step the simulation
     if (m_dynamicsWorld)
     {	  
-        btScalar delta_t = delta_tick; //#TODO THIS IS NOT CORRECT, USE THE DIFFERENCE IN THE SIMULATION
+        btScalar delta_t = delta_tick;
         m_dynamicsWorld->stepSimulation(delta_t);
         //optional but useful: debug drawing
         m_dynamicsWorld->debugDrawWorld();
@@ -108,8 +117,9 @@ void CcdPhysicsDemo::clientMoveAndDisplay()
 void CcdPhysicsDemo::displayText()
 {
     int lineWidth=440;
-    int xStart = m_glutScreenWidth - lineWidth;
-    int yStart = 20;
+//     int xStart = m_glutScreenWidth - lineWidth;
+    int xStart = 0;
+    int yStart = 0;
     
     if((getDebugMode() & btIDebugDraw::DBG_DrawText)!=0)
     {
@@ -118,35 +128,28 @@ void CcdPhysicsDemo::displayText()
         glColor3f(0, 0, 0);
         char buf[124];
         
-        glRasterPos3f(xStart, yStart, 0);
-        switch (m_ccdMode)
-        {
-            case USE_CCD:
-            {
-                sprintf(buf,"Predictive contacts and motion clamping");
-                break;
-            }
-            case USE_NO_CCD:
-            {
-                sprintf(buf,"CCD handling disabled");
-                break;
-            }
-            default:
-            {
-                sprintf(buf,"unknown CCD setting");
-            };
-        };
+//         glRasterPos3f(xStart, yStart, 0);
+        if (m_is_paused) {
+            sprintf(buf,"Step %d, SIMULATION PAUSED", m_simulation_step);
+        }
+        else {
+            sprintf(buf,"Step %d", m_simulation_step);
+        }        
+        yStart+=20;
+        GLDebugDrawString(xStart,yStart,buf);
         
-        GLDebugDrawString(xStart,20,buf);
-        glRasterPos3f(xStart, yStart, 0);
-        sprintf(buf,"Press 'p' to change CCD mode");
-        yStart+=20;
-        GLDebugDrawString(xStart,yStart,buf);
-        glRasterPos3f(xStart, yStart, 0);
-        sprintf(buf,"Press '.' or right mouse to shoot bullets");
-        yStart+=20;
-        GLDebugDrawString(xStart,yStart,buf);
-        glRasterPos3f(xStart, yStart, 0);
+        std::stringstream ss;
+        ss<<"Current gripper position: "<<m_ROSTransform.inverse() * m_gripper->getWorldTransform().getOrigin();
+        yStart += 20;
+        GLDebugDrawString(xStart,yStart,ss.str().c_str());
+        
+        ss.clear();
+        ss.str("");        
+        ss<<"Recorded gripper position: "<<m_simulation->trajectory[m_simulation_step-1].pose.position;
+        yStart += 20;
+        GLDebugDrawString(xStart,yStart,ss.str().c_str());
+        
+        
         sprintf(buf,"space to restart, h(elp), t(ext), w(ire)");
         yStart+=20;
         GLDebugDrawString(xStart,yStart,buf);
@@ -199,10 +202,13 @@ void	CcdPhysicsDemo::initPhysics()
 {
     setTexturing(true);
     setShadows(true);
+//     m_is_paused = true;
     
-    m_ShootBoxInitialSpeed = 200.f;
+    m_ShootBoxInitialSpeed = 20.f;
     m_simulation_clock.reset();
-    m_simulation_step = 0;
+    m_simulation_step = 1;
+    m_prevLinearVelocity = btVector3(0,0,0);
+    m_prevAngularVelocity = btVector3(0,0,0);
     
     ///collision configuration contains default setup for memory, collision setup
     m_collisionConfiguration = new btDefaultCollisionConfiguration();
@@ -233,29 +239,44 @@ void	CcdPhysicsDemo::initPhysics()
     
     m_dynamicsWorld->setGravity(btVector3(0,btScalar(-10),0));
     
-    ///create a few basic rigid bodies
-    btBoxShape* box = new btBoxShape(btVector3(btScalar(110.),btScalar(0),btScalar(110.)));
-    //	box->initializePolyhedralFeatures();
-    btCollisionShape* groundShape = box;
-    
-    //	btCollisionShape* groundShape = new btStaticPlaneShape(btVector3(0,1,0),50);
-    
-    m_collisionShapes.push_back(groundShape);
-    
-    btTransform groundTransform = btTransform::getIdentity();
-    groundTransform.setIdentity();
-    groundTransform.setOrigin(btVector3(0,0,0));
-    
-    //We can also use DemoApplication::localCreateRigidBody, but for clarity it is provided here:
+    //Collision Box
     {
-        btScalar mass(0.);
-        
-        //rigidbody is dynamic if and only if mass is non zero, otherwise static
-        bool isDynamic = (mass != 0.f);
-        
+        btScalar mass(0.5);
         btVector3 localInertia(0,0,0);
-        if (isDynamic)
-            groundShape->calculateLocalInertia(mass,localInertia);
+        btVector3 boxdimensions = m_simulation->pre_box_dims;
+        
+        btCollisionShape* boxshape = new btBoxShape(boxdimensions);
+        m_collisionShapes.push_back(boxshape);
+        boxshape->calculateLocalInertia(mass, localInertia);
+        
+        btTransform init_transform = m_simulation->pre_box_pose.getTransform();
+        btTransform box_transform = m_ROSTransform * init_transform;
+        
+        btDefaultMotionState* myMotionState = new btDefaultMotionState(box_transform);
+        btRigidBody::btRigidBodyConstructionInfo rbInfo(mass,myMotionState,boxshape,localInertia);
+        btRigidBody* body = new btRigidBody(rbInfo);
+        body->setFriction(1.0);
+        m_dynamicsWorld->addRigidBody(body);
+        m_collision_body = body;
+    }
+    
+    //Ground
+    {
+        btTransform groundTransform = btTransform::getIdentity();
+        groundTransform.setIdentity();        
+        btScalar ground_height = m_collision_body->getWorldTransform().getOrigin().getY() - (m_simulation->pre_box_dims.getZ());
+//         btScalar ground_height = 0;
+        btVector3 ground_pos = btVector3(0,ground_height,0);
+        groundTransform.setOrigin(ground_pos);
+        
+        btBoxShape* groundShape = new btBoxShape(btVector3(btScalar(110.),btScalar(0),btScalar(110.)));
+        m_collisionShapes.push_back(groundShape);
+
+        std::cout<<"Ground pos: "<<ground_pos<<"\n";
+        std::cout<<"Object pos: "<<m_collision_body->getWorldTransform().getOrigin()<<"\n";
+        
+        btScalar mass(0.);
+        btVector3 localInertia(0,0,0);
         
         //using motionstate is recommended, it provides interpolation capabilities, and only synchronizes 'active' objects
         btDefaultMotionState* myMotionState = new btDefaultMotionState(groundTransform);
@@ -266,41 +287,19 @@ void	CcdPhysicsDemo::initPhysics()
         m_dynamicsWorld->addRigidBody(body);
     }
     
-    //First Box
-    {
-        btScalar mass(0.5);
-        btVector3 localInertia(0,0,0);
-        btCollisionShape* boxshape = new btBoxShape(btVector3(btScalar(0.2), btScalar(0.2), btScalar(0.2)));
-        m_collisionShapes.push_back(boxshape);
-        boxshape->calculateLocalInertia(mass, localInertia);
-        
-        // 	  btTransform groundTransform;
-        // 	  groundTransform.setIdentity();
-        btDefaultMotionState* myMotionState = new btDefaultMotionState(btTransform(btQuaternion(0,0,0,1),btVector3(1, 0.2, 0.0)));
-        btRigidBody::btRigidBodyConstructionInfo rbInfo(mass,myMotionState,boxshape,localInertia);
-        btRigidBody* body = new btRigidBody(rbInfo);
-        body->setFriction(1.0);
-        m_dynamicsWorld->addRigidBody(body);
-        m_collision_body = body;
-        
-    }
-    
-    //Collision Box
+    //Gripper
     {
         btScalar mass(2.0);
         btVector3 localInertia(0,0,0);
-//         btCollisionShape* boxshape = new btBoxShape(btVector3(btScalar(0.5), btScalar(0.5), btScalar(0.5)));
-        btCollisionShape* boxshape = readGripper();
-        m_collisionShapes.push_back(boxshape);
-        boxshape->calculateLocalInertia(mass, localInertia);
+        btCollisionShape* gripper_shape = readGripper();
+        m_collisionShapes.push_back(gripper_shape);
+        gripper_shape->calculateLocalInertia(mass, localInertia);
         
-        // 	  btTransform groundTransform;
-        // 	  groundTransform.setIdentity();
-//         btDefaultMotionState* myMotionState = new btDefaultMotionState(btTransform(btQuaternion(0.518664,-0.481273,-0.507119,-0.492131),btVector3(0,2.1,0)));
-        btQuaternion init_rotation = m_simulation->trajectory[0].pose.orientation;
-        btVector3  init_position = m_simulation->trajectory[0].pose.position;
-        btDefaultMotionState* myMotionState = new btDefaultMotionState(btTransform(init_rotation,init_position));
-        btRigidBody::btRigidBodyConstructionInfo rbInfo(mass,myMotionState,boxshape,localInertia);
+        btTransform init_transform = m_simulation->trajectory[0].pose.getTransform();
+        btTransform gripper_transform = m_ROSTransform* init_transform;
+        
+        btDefaultMotionState* myMotionState = new btDefaultMotionState(gripper_transform);
+        btRigidBody::btRigidBodyConstructionInfo rbInfo(mass,myMotionState,gripper_shape,localInertia);
         btRigidBody* body = new btRigidBody(rbInfo);
         body->setGravity(btVector3(0,0,0));
         // 	  body->setFriction(1.0);
@@ -322,7 +321,7 @@ void	CcdPhysicsDemo::clientResetScene()
 
 void CcdPhysicsDemo::keyboardCallback(unsigned char key, int x, int y)
 {
-    if (key=='p')
+    if (key=='c')
     {
         switch (m_ccdMode)
         {
@@ -338,9 +337,9 @@ void CcdPhysicsDemo::keyboardCallback(unsigned char key, int x, int y)
             }
         };
         clientResetScene();
-    } else  if (key == 'f')
+    } else  if (key == 'p')
     {
-        
+        m_is_paused = ! m_is_paused;        
     }
     else
     {
@@ -415,8 +414,36 @@ void CcdPhysicsDemo::mystep(btScalar step)
 
 void CcdPhysicsDemo::step_simulation() {
     m_gripper->activate(true);
-    btTransform newpos = m_simulation->trajectory[m_simulation_step].pose.getTransform();
-    m_gripper->setWorldTransform(newpos);
+    btScalar inv_mass = m_gripper->getInvMass();
+    
+    btTransform prev_pose = m_simulation->trajectory[m_simulation_step-1].pose.getTransform();
+    btTransform current_pose = m_simulation->trajectory[m_simulation_step].pose.getTransform();
+    
+    btTransform next_pose;
+    if (m_simulation_step == m_simulation->trajectory.size()-1)
+        next_pose = current_pose;
+    else
+        next_pose = m_simulation->trajectory[m_simulation_step+1].pose.getTransform();
+    
+    double time_diff = m_simulation->trajectory[m_simulation_step+1].time - m_simulation->trajectory[m_simulation_step].time;
+    
+    btVector3 thisStepLinearVel, thisStepAngularVel;
+    btTransformUtil::calculateVelocity(current_pose, next_pose, time_diff, thisStepLinearVel, thisStepAngularVel);
+    
+    btVector3 linearImpulse = m_ROSTransform * (thisStepLinearVel - m_prevLinearVelocity) / inv_mass;
+    btVector3 angularImpulse = m_ROSTransform * (thisStepAngularVel - m_prevAngularVelocity) / inv_mass;
+    
+    m_prevLinearVelocity = thisStepLinearVel;
+    m_prevAngularVelocity = thisStepAngularVel;
+    
+//     m_gripper->applyCentralImpulse(linearImpulse);
+//     m_gripper->applyTorqueImpulse(angularImpulse);
+    
+    m_gripper->setLinearVelocity(m_ROSTransform * thisStepLinearVel);
+    m_gripper->setAngularVelocity(m_ROSTransform * thisStepAngularVel);
+    
+//     btTransform gripper_transform = m_ROSTransform * m_simulation->trajectory[m_simulation_step].pose.getTransform();    
+//     m_gripper->setWorldTransform(gripper_transform);
     
     m_simulation_step++;
 }
