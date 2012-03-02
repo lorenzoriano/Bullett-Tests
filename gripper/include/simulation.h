@@ -52,6 +52,7 @@ struct Simulation {
         }
     }
     
+    
     PoseStamped& operator[](int i) {
         return trajectory[i];
     }
